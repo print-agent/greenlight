@@ -1,12 +1,41 @@
 package data
 
-import "github.com/print-agent/greenlight/internal/validator"
+import (
+	"slices"
+	"strings"
+
+	"github.com/print-agent/greenlight/internal/validator"
+)
 
 type Filters struct {
 	Page         int
 	PageSize     int
 	Sort         string
 	SortSafelist []string
+}
+
+func (f Filters) sortColumn() string {
+	if slices.Contains(f.SortSafelist, f.Sort) {
+		return strings.TrimPrefix(f.Sort, "-")
+	}
+
+	panic("unsafe sort paramter: " + f.Sort)
+}
+
+func (f Filters) limit() int {
+	return f.PageSize
+}
+
+func (f Filters) offset() int {
+	return (f.Page - 1) * f.PageSize
+}
+
+func (f Filters) sortDirection() string {
+	if strings.HasPrefix(f.Sort, "-") {
+		return "DESC"
+	}
+
+	return "ASC"
 }
 
 func ValidateFilters(v *validator.Validator, f Filters) {
