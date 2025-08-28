@@ -15,7 +15,7 @@ YELLOW := Write-Host -ForegroundColor Yellow
 ## Show this help message
 help:
 	@$(CYAN) "Available commands:"
-	@$$content = Get-Content Makefile; for ($$i = 0; $$i -lt $$content.Length; $$i++) { if ($$content[$$i] -match '^## (.+)$$') { $$desc = $$matches[1]; if (($$i + 1) -lt $$content.Length -and $$content[$$i + 1] -match '^([a-zA-Z0-9_/-]+):') { $$target = $$matches[1]; $(CYAN) "  $$target - $$desc" } } }
+	@$$commands = @(); $$maxLength = 0; $$content = Get-Content '$(firstword $(MAKEFILE_LIST))'; for ($$i = 0; $$i -lt $$content.Length; $$i++) { if ($$content[$$i] -match '^## (.+)$$') { $$desc = $$matches[1]; if (($$i + 1) -lt $$content.Length -and $$content[$$i + 1] -match '^([a-zA-Z0-9_/-]+):') { $$target = $$matches[1]; if ($$target.Length -gt $$maxLength) { $$maxLength = $$target.Length; }; $$commands += [PSCustomObject]@{ Target = $$target; Description = $$desc }; }; }; }; $$padding = $$maxLength + 4; foreach ($$command in $$commands) { $$targetPadded = $$command.Target.PadRight($$padding); $(CYAN) "  $$targetPadded$$($$command.Description)"; }
 
 ## (Internal) Universally confirm a potentially destructive action
 confirm:
@@ -48,7 +48,7 @@ go/build: env-check
 	@$(LOAD_ENV); go build -o bin/api.exe ./cmd/api
 
 ## Clean build artifacts
-go/clean:
+go/clean: confirm
 	@$(CYAN) "Cleaning build artifacts..."
 	@if (Test-Path bin) { Remove-Item -Recurse -Force bin }
 
@@ -58,12 +58,12 @@ db/migration/up: env-check confirm
 	@$(LOAD_ENV); migrate -path ./migrations -database $$Env:GREENLIGHT_DB_DSN up
 
 ## Run database migrations down
-db/migration/down: env-check
+db/migration/down: env-check confirm
 	@$(CYAN) "Running down migrations..."
 	@$(LOAD_ENV); migrate -path ./migrations -database $$Env:GREENLIGHT_DB_DSN down
 
 ## Reset database (down all + up)
-db/migration/reset: env-check
+db/migration/reset: env-check confirm
 	@$(CYAN) "Resetting database..."
 	@$(LOAD_ENV); migrate -path ./migrations -database $$Env:GREENLIGHT_DB_DSN down -all; migrate -path ./migrations -database $$Env:GREENLIGHT_DB_DSN up
 
