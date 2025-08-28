@@ -2,8 +2,9 @@ SHELL := pwsh.exe
 .SHELLFLAGS := -NoLogo -ExecutionPolicy Bypass -Command
 .DEFAULT_GOAL := help
 
-# Load environment variables
-LOAD_ENV := . ./load_env.ps1 -Verbose
+# Include environment variables from .env file
+-include .env
+export
 
 # Colors for output (PowerShell compatible)
 CYAN := Write-Host -ForegroundColor Cyan
@@ -30,22 +31,22 @@ env-check:
 ## Run the Go API server in development mode
 go/run: env-check
 	@$(CYAN) "Starting Go API server..."
-	@$(LOAD_ENV); go run ./cmd/api -db-dsn="$${Env:GREENLIGHT_DB_DSN}"
+	@go run ./cmd/api -db-dsn="$(GREENLIGHT_DB_DSN)"
 
 ## Run the API with hot reload (requires air: go install github.com/air-verse/air@latest)
 go/dev: env-check
 	@$(CYAN) "Starting Go API server with hot reload..."
-	@$(LOAD_ENV); air
+	@air
 
 ## Run tests
 go/test: env-check
 	@$(CYAN) "Running tests..."
-	@$(LOAD_ENV); go test -v ./...
+	@go test -v ./...
 
 ## Build the application
 go/build: env-check
 	@$(CYAN) "Building application..."
-	@$(LOAD_ENV); go build -o bin/api.exe ./cmd/api
+	@go build -o bin/api.exe ./cmd/api
 
 ## Clean build artifacts
 go/clean: confirm
@@ -55,31 +56,32 @@ go/clean: confirm
 ## Run database migrations up
 db/migration/up: env-check confirm
 	@$(CYAN) "Running up migrations..."
-	@$(LOAD_ENV); migrate -path ./migrations -database $$Env:GREENLIGHT_DB_DSN up
+	@migrate -path ./migrations -database $(GREENLIGHT_DB_DSN) up
 
 ## Run database migrations down
 db/migration/down: env-check confirm
 	@$(CYAN) "Running down migrations..."
-	@$(LOAD_ENV); migrate -path ./migrations -database $$Env:GREENLIGHT_DB_DSN down
+	@migrate -path ./migrations -database $(GREENLIGHT_DB_DSN) down
 
 ## Reset database (down all + up)
 db/migration/reset: env-check confirm
 	@$(CYAN) "Resetting database..."
-	@$(LOAD_ENV); migrate -path ./migrations -database $$Env:GREENLIGHT_DB_DSN down -all; migrate -path ./migrations -database $$Env:GREENLIGHT_DB_DSN up
+	@migrate -path ./migrations -database $(GREENLIGHT_DB_DSN) down -all
+	@migrate -path ./migrations -database $(GREENLIGHT_DB_DSN) up
 
 ## Open database CLI
 db/cli: env-check
 	@$(CYAN) "Opening database CLI..."
-	@$(LOAD_ENV); pgcli $$Env:GREENLIGHT_DB_DSN
+	@pgcli $(GREENLIGHT_DB_DSN)
 
 ## Show database migration status
 db/migration/status: env-check
 	@$(CYAN) "Database migration status:"
-	@$(LOAD_ENV); migrate -path ./migrations -database $$Env:GREENLIGHT_DB_DSN version
+	@migrate -path ./migrations -database $(GREENLIGHT_DB_DSN) version
 
-## Create a new migration file (usage: make db-migration name=create_users_table)
+## Create a new migration file (usage: make db/migration/new name=create_users_table)
 db/migration/new:
-	@if (-not $$Env:name) { $(YELLOW) "Usage: make db/migration name=your_migration_name"; exit 1 }
+	@if (-not $$Env:name) { $(YELLOW) "Usage: make db/migration/new name=your_migration_name"; exit 1 }
 	@$(CYAN) "Creating migration: $$Env:name"
 	@migrate create -seq -ext sql -dir ./migrations $$Env:name
 
