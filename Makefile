@@ -30,7 +30,7 @@ env-check:
 ## Run the Go API server in development mode
 go/run: env-check
 	@$(CYAN) "Starting Go API server..."
-	@$(LOAD_ENV); go run ./cmd/api
+	@$(LOAD_ENV); go run ./cmd/api -db-dsn="$${Env:GREENLIGHT_DB_DSN}"
 
 ## Run the API with hot reload (requires air: go install github.com/air-verse/air@latest)
 go/dev: env-check
