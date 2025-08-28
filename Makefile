@@ -11,7 +11,11 @@ CYAN := Write-Host -ForegroundColor Cyan
 GREEN := Write-Host -ForegroundColor Green
 YELLOW := Write-Host -ForegroundColor Yellow
 
-.PHONY: help confirm env-check go/run go/dev go/test go/build go/clean db/up db/down db/reset db/cli db/status
+.PHONY: help confirm env-check go/run go/dev go/test go/build go/clean go/tidy go/audit db/migration/up db/migration/down db/migration/reset db/cli db/migration/status db/migration/new install-tools
+
+# ==================================================================================== #
+# HELPERS
+# ==================================================================================== #
 
 ## Show this help message
 help:
@@ -28,6 +32,18 @@ env-check:
 	@$$policy = Get-ExecutionPolicy; if ($$policy -eq "Restricted") { $(YELLOW) "Warning: ExecutionPolicy is Restricted. Run: Set-ExecutionPolicy RemoteSigned -Scope CurrentUser"; exit 1 }
 	@$(GREEN) "Environment setup OK"
 
+## Install required tools
+install-tools:
+	@$(CYAN) "Installing required tools..."
+	@go install -tags 'postgres' github.com/golang-migrate/migrate/v4/cmd/migrate@latest
+	@go install github.com/air-verse/air@latest
+	@go install honnef.co/go/tools/cmd/staticcheck@latest
+	@$(GREEN) "Tools installed successfully"
+
+# ==================================================================================== #
+# DEVELOPMENT
+# ==================================================================================== #
+
 ## Run the Go API server in development mode
 go/run: env-check
 	@$(CYAN) "Starting Go API server..."
@@ -37,11 +53,6 @@ go/run: env-check
 go/dev: env-check
 	@$(CYAN) "Starting Go API server with hot reload..."
 	@air
-
-## Run tests
-go/test: env-check
-	@$(CYAN) "Running tests..."
-	@go test -v ./...
 
 ## Build the application
 go/build: env-check
@@ -81,13 +92,38 @@ db/migration/status: env-check
 
 ## Create a new migration file (usage: make db/migration/new name=create_users_table)
 db/migration/new:
-	@if (-not $$Env:name) { $(YELLOW) "Usage: make db/migration/new name=your_migration_name"; exit 1 }
-	@$(CYAN) "Creating migration: $$Env:name"
-	@migrate create -seq -ext sql -dir ./migrations $$Env:name
+	@if (-not $Env:name) { $(YELLOW) "Usage: make db/migration/new name=your_migration_name"; exit 1 }
+	@$(CYAN) "Creating migration: $Env:name"
+	@migrate create -seq -ext sql -dir ./migrations $Env:name
 
-## Install required tools
-install-tools:
-	@$(CYAN) "Installing required tools..."
-	@go install -tags 'postgres' github.com/golang-migrate/migrate/v4/cmd/migrate@latest
-	@go install github.com/air-verse/air@latest
-	@$(GREEN) "Tools installed successfully"
+# ==================================================================================== #
+# QUALITY CONTROL
+# ==================================================================================== #
+
+## Format code and tidy module dependencies
+go/tidy:
+	@$(CYAN) "Formatting .go files..."
+	@go fmt ./...
+	@$(CYAN) "Tidying module dependencies..."
+	@go mod tidy
+	@$(CYAN) "Verifying and vendoring module dependencies..."
+	@go mod verify
+	@go mod vendor
+	@$(GREEN) "Code formatting and module tidying complete"
+
+## Run comprehensive code audit (format, vet, staticcheck, test)
+go/audit: go/tidy
+	@$(CYAN) "Checking module dependencies..."
+	@go mod tidy -diff
+	@go mod verify
+	@$(CYAN) "Vetting code..."
+	@go vet ./...
+	@if (Get-Command staticcheck -ErrorAction SilentlyContinue) { $(CYAN) "Running staticcheck..."; staticcheck ./... } else { $(YELLOW) "staticcheck not found, run 'make install-tools' to install it" }
+	@$(CYAN) "Running tests with race detection..."
+	@go test -race -vet=off ./...
+	@$(GREEN) "Code audit complete"
+
+## Run tests only
+go/test: env-check
+	@$(CYAN) "Running tests..."
+	@go test -v ./...
