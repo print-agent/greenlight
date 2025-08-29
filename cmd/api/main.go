@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"expvar"
 	"flag"
+	"fmt"
 	"log/slog"
 	"os"
 	"runtime"
@@ -16,9 +17,10 @@ import (
 	_ "github.com/lib/pq"
 	"github.com/print-agent/greenlight/internal/data"
 	"github.com/print-agent/greenlight/internal/mailer"
+	"github.com/print-agent/greenlight/internal/vcs"
 )
 
-const version = "1.0.0"
+var version = vcs.Version()
 
 type config struct {
 	port int
@@ -57,8 +59,6 @@ type application struct {
 func main() {
 	var cfg config
 
-	logger := slog.New(slog.NewTextHandler(os.Stdout, nil))
-
 	// err := godotenv.Load(".env")
 	// if err != nil {
 	// 	logger.Error(err.Error())
@@ -88,9 +88,16 @@ func main() {
 		return nil
 	})
 
+	displayVersion := flag.Bool("version", false, "Display version and exit")
+
 	flag.Parse()
 
-	// NOTE: logger has been moved up
+	if *displayVersion {
+		fmt.Printf("Version:\t%s\n", version)
+		os.Exit(0)
+	}
+
+	logger := slog.New(slog.NewTextHandler(os.Stdout, nil))
 
 	db, err := openDB(cfg)
 	if err != nil {
