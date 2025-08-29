@@ -57,7 +57,8 @@ go/dev: env-check
 ## Build the application
 go/build: env-check
 	@$(CYAN) "Building application..."
-	@go build -o bin/api.exe ./cmd/api
+	@go build -ldflags '-s' -o bin/api.exe ./cmd/api
+	$$GOOS='linux'; $$GOARCH='amd64'; go build -ldflags '-s' -o bin/linux_amd64/api ./cmd/api
 
 ## Clean build artifacts
 go/clean: confirm
